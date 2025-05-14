@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Inventario Interactivo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #1e1e2f;
+      color: white;
+      margin: 0;
+      padding: 20px;
+    }
+
+    input, select, button {
+      margin: 5px;
+      padding: 8px;
+      font-size: 14px;
+    }
+
+    table {
+      width: 100%;
+      margin-top: 20px;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      border: 1px solid #88ccff;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #333366;
+    }
+
+    #resumen-flotante {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background-color: #222244;
+      color: white;
+      text-align: left;
+      padding: 10px 20px;
+      border-top: 2px solid #555;
+      z-index: 1000;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.5);
+    }
+
+    #abrirResumen {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: #2a2a5a;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      font-size: 24px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      z-index: 1001;
+    }
+
+    #abrirResumen:hover {
+      background-color: #444477;
+    }
+
+    .btn-eliminar {
+      background-color: #ff4444;
+      border: none;
+      padding: 5px 10px;
+      color: white;
+      cursor: pointer;
+    }
+
+    .btn-eliminar:hover {
+      background-color: #cc0000;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Inventario Interactivo</h1>
+
+  <input type="text" id="producto" placeholder="Nombre del producto" />
+  <input type="number" id="cantidad" placeholder="Cantidad" min="1" />
+  <input type="number" id="precio" placeholder="Precio por unidad" min="0" />
+  <select id="tipo">
+    <option value="Pantalla">Pantalla</option>
+    <option value="Forro" selected>Forro</option>
+    <option value="Cargador">Cargador</option>
+    <option value="Cables">Cables</option>
+  </select>
+  <button onclick="agregarProducto()">Agregar</button>
+
+  <table id="inventario">
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th>Categoría</th>
+        <th>Cantidad</th>
+        <th>Precio Unitario</th>
+        <th>Valor Total</th>
+        <th>Eliminar</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- Contenedor del resumen -->
+  <div id="resumen-flotante">
+    <button onclick="cerrarResumen()" style="float:right; background:none; border:none; color:white; font-size:20px;">✖</button>
+    <p><strong>Activos:</strong> <span id="activos">0</span></p>
+    <p><strong>Pasivos:</strong> <span id="pasivos">0</span></p>
+    <p><strong>Valor Total:</strong> <span id="totalValor">$0</span></p>
+  </div>
+
+  <!-- Botón flotante para reabrir resumen -->
+  <button id="abrirResumen" onclick="abrirResumen()" title="Mostrar resumen">📊</button>
+
+  <script>
+    let inventario = JSON.parse(localStorage.getItem('inventario')) || [];
+
+    function formatearPesos(valor) {
+      return '$' + valor.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    function actualizarTabla() {
+      const tbody = document.querySelector("#inventario tbody");
+      tbody.innerHTML = "";
+      let activos = 0, pasivos = 0, total = 0;
+
+      inventario.forEach((item, index) => {
+        const fila = document.createElement("tr");
+        const valorTotal = item.cantidad * item.precio;
+        fila.innerHTML = `
+          <td>${item.nombre}</td>
+          <td>${item.tipo}</td>
+          <td>${item.cantidad}</td>
+          <td>${formatearPesos(item.precio)}</td>
+          <td>${formatearPesos(valorTotal)}</td>
+          <td><button class="btn-eliminar" onclick="eliminarProducto(${index})">Eliminar</button></td>
+        `;
+        tbody.appendChild(fila);
+
+        if (item.tipo.toLowerCase() === "activo") activos += valorTotal;
+        else pasivos += valorTotal;
+
+        total += valorTotal;
+      });
+
+      document.getElementById("activos").textContent = formatearPesos(activos);
+      document.getElementById("pasivos").textContent = formatearPesos(pasivos);
+      document.getElementById("totalValor").textContent = formatearPesos(total);
+
+      localStorage.setItem("inventario", JSON.stringify(inventario));
+    }
+
+    function agregarProducto() {
+      const nombre = document.getElementById("producto").value.trim().toLowerCase();
+      const cantidad = parseInt(document.getElementById("cantidad").value);
+      const precio = parseInt(document.getElementById("precio").value);
+      const tipo = document.getElementById("tipo").value;
+
+      if (!nombre || isNaN(cantidad) || isNaN(precio)) return;
+
+      const existente = inventario.find(p => p.nombre === nombre);
+      if (existente) {
+        existente.cantidad += cantidad;
+      } else {
+        inventario.push({ nombre: nombre || "forro", cantidad, precio, tipo });
+      }
+
+      document.getElementById("producto").value = "";
+      document.getElementById("cantidad").value = "";
+      document.getElementById("precio").value = "";
+
+      actualizarTabla();
+    }
+
+    function eliminarProducto(index) {
+      if (confirm("¿Seguro que deseas eliminar este producto?")) {
+        inventario.splice(index, 1);
+        actualizarTabla();
+      }
+    }
+
+    function cerrarResumen() {
+      document.getElementById("resumen-flotante").style.display = "none";
+      document.getElementById("abrirResumen").style.display = "block";
+      localStorage.setItem("resumenCerrado", "true");
+    }
+
+    function abrirResumen() {
+      document.getElementById("resumen-flotante").style.display = "block";
+      document.getElementById("abrirResumen").style.display = "none";
+      localStorage.setItem("resumenCerrado", "false");
+    }
+
+    function mostrarResumenSiNoCerrado() {
+      const cerrado = localStorage.getItem("resumenCerrado");
+      if (cerrado === "true") {
+        document.getElementById("resumen-flotante").style.display = "none";
+        document.getElementById("abrirResumen").style.display = "block";
+      } else {
+        document.getElementById("resumen-flotante").style.display = "block";
+        document.getElementById("abrirResumen").style.display = "none";
+      }
+    }
+
+    window.addEventListener('load', () => {
+      actualizarTabla();
+      mostrarResumenSiNoCerrado();
+    });
+  </script>
+</body>
+</html>
